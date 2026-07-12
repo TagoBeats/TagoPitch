@@ -1,0 +1,34 @@
+body {
+  margin: 0;
+  background: #12100e;
+  color: #efe9dd;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.param {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px;
+  align-items: center;
+  gap: 12px;
+}
+
+.param input[type="range"] {
+  accent-color: #2dd4bf;
+}
+
+.param code {
+  text-align: right;
+  color: #2dd4bf;
+}

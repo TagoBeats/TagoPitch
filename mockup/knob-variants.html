@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TagoPitch — Knob-Varianten</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #12100E; --bg-deep: #0A0908; --surface: #1A1815;
+    --text: #ECE7DE; --text-hi: #F2EEE6;
+    --accent: #00FDDC; --accent-2: #00D2C4;
+    --hairline: rgba(236,231,222,0.14);
+    --dim: rgba(236,231,222,0.45);
+    --faint: rgba(236,231,222,0.24);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+    background: var(--bg-deep); color: var(--text);
+    font-family: "Archivo", sans-serif;
+  }
+  h1 { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-hi); }
+  .board {
+    display: grid; grid-template-columns: repeat(4, 200px); gap: 18px;
+  }
+  .cell {
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 26px 0 18px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    background-image: radial-gradient(rgba(236,231,222,0.05) 1px, transparent 1.2px);
+    background-size: 22px 22px;
+  }
+  .cell .tag {
+    font-family: "Space Mono", monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .cell .desc {
+    font-size: 11px; color: var(--dim); text-align: center; padding: 0 14px; line-height: 1.45;
+    min-height: 46px;
+  }
+  .knob-unit { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: ns-resize; touch-action: none; }
+  .knob-value { font-family: "Space Mono", monospace; font-size: 13px; letter-spacing: 0.08em; color: var(--accent); min-height: 18px; }
+  .knob-label { font-family: "Space Mono", monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: var(--dim); }
+
+  .track   { stroke: rgba(236,231,222,0.12); fill: none; }
+  .fill    { stroke: var(--accent); fill: none; filter: drop-shadow(0 0 5px rgba(0,253,220,0.55)); }
+  .pointer { stroke: var(--text-hi); stroke-linecap: round; }
+  .detent  { fill: var(--faint); }
+  .ring    { fill: none; stroke: rgba(255,255,255,0.035); }
+  .face    { stroke: var(--hairline); }
+  .bezel   { stroke: rgba(236,231,222,0.22); }
+  .tick    { stroke: rgba(236,231,222,0.22); stroke-linecap: round; }
+  .grip    { fill: none; stroke: rgba(255,255,255,0.07); }
+  .caption {
+    font-family: "Space Mono", monospace; font-size: 11px;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint);
+  }
+</style>
+</head>
+<body>
+<h1>Pitch-Knob, vier Optiken — alle drehbar</h1>
+<div class="board">
+  <div class="cell">
+    <div class="tag">A · Current</div>
+    <div class="desc">Stand jetzt: flache Fläche, dünner Arc, Drehrillen</div>
+    <div class="knob-unit" data-style="current" data-label="pitch"></div>
+  </div>
+  <div class="cell">
+    <div class="tag">B · Hardware</div>
+    <div class="desc">Metall-Bezel, tiefe gewölbte Kappe, Skalenstriche außen, satter Zeiger</div>
+    <div class="knob-unit" data-style="hardware" data-label="pitch"></div>
+  </div>
+  <div class="cell">
+    <div class="tag">C · Ring</div>
+    <div class="desc">Keine Kappe: dicker Arc, Wert in der Mitte, schwebender Zeiger</div>
+    <div class="knob-unit" data-style="ring" data-label="pitch"></div>
+  </div>
+  <div class="cell">
+    <div class="tag">D · Vintage</div>
+    <div class="desc">Matte Kappe mit Griffkerben am Rand, Zeiger bis zur Kante</div>
+    <div class="knob-unit" data-style="vintage" data-label="pitch"></div>
+  </div>
+</div>
+<div class="caption">Drag · Scroll · 2×Click = Reset · sag mir den Buchstaben</div>
+
+<script>
+const SWEEP = 270, START = -135;
+function polar(cx, cy, r, deg) {
+  const rad = (deg - 90) * Math.PI / 180;
+  return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+function arcPath(cx, cy, r, a0, a1) {
+  if (Math.abs(a1 - a0) < 0.01) return "";
+  const [x0, y0] = polar(cx, cy, r, a0);
+  const [x1, y1] = polar(cx, cy, r, a1);
+  return `M ${x0} ${y0} A ${r} ${r} 0 ${Math.abs(a1-a0) > 180 ? 1 : 0} ${a1 > a0 ? 1 : 0} ${x1} ${y1}`;
+}
+
+let seq = 0;
+class Knob {
+  constructor(el, style) {
+    this.el = el; this.style = style;
+    this.min = -12; this.max = 12; this.def = 0; this.step = 1; this.value = 0;
+    this.size = 118; this.r = this.size / 2 - 7;
+    this.build(); this.bind(); this.render();
+  }
+
+  build() {
+    const s = this.size, c = s / 2, ns = "http://www.w3.org/2000/svg";
+    const svg = this.svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("width", s); svg.setAttribute("height", s);
+    svg.setAttribute("viewBox", `0 0 ${s} ${s}`);
+    const gid = `g${seq++}`;
+    const defs = document.createElementNS(ns, "defs");
+    defs.innerHTML =
+      `<radialGradient id="${gid}-soft" cx="0.5" cy="0.32" r="0.75">
+         <stop offset="0" stop-color="#242019"/><stop offset="0.55" stop-color="#1A1815"/><stop offset="1" stop-color="#131110"/>
+       </radialGradient>
+       <radialGradient id="${gid}-deep" cx="0.5" cy="0.28" r="0.9">
+         <stop offset="0" stop-color="#2E2921"/><stop offset="0.45" stop-color="#1C1916"/><stop offset="0.85" stop-color="#0E0C0B"/><stop offset="1" stop-color="#080707"/>
+       </radialGradient>
+       <linearGradient id="${gid}-bezel" x1="0" y1="0" x2="0" y2="1">
+         <stop offset="0" stop-color="#3A352C"/><stop offset="0.5" stop-color="#15130F"/><stop offset="1" stop-color="#2A261F"/>
+       </linearGradient>
+       <radialGradient id="${gid}-matte" cx="0.5" cy="0.38" r="0.72">
+         <stop offset="0" stop-color="#211D18"/><stop offset="1" stop-color="#14120F"/>
+       </radialGradient>`;
+    svg.appendChild(defs);
+    this.gid = gid;
+
+    const mk = (tag, cls) => { const n = document.createElementNS(ns, tag); n.setAttribute("class", cls); svg.appendChild(n); return n; };
+    const st = this.style;
+
+    // outer ticks for hardware style, before arcs so they sit behind
+    if (st === "hardware") {
+      for (let i = 0; i <= 24; i++) {
+        const ang = START + (i / 24) * SWEEP;
+        const major = i % 6 === 0;
+        const [x0, y0] = polar(c, c, this.r + (major ? 1 : 2), ang);
+        const [x1, y1] = polar(c, c, this.r + 5, ang);
+        const t = mk("line", "tick");
+        t.setAttribute("x1", x0); t.setAttribute("y1", y0);
+        t.setAttribute("x2", x1); t.setAttribute("y2", y1);
+        t.setAttribute("stroke-width", major ? 1.6 : 1);
+      }
+    }
+
+    const arcR = st === "ring" ? this.r - 2 : this.r;
+    const arcW = st === "ring" ? 7 : 3;
+    this.arcR = arcR;
+    this.track = mk("path", "track");
+    this.track.setAttribute("d", arcPath(c, c, arcR, START, START + SWEEP));
+    this.track.setAttribute("stroke-width", arcW);
+    this.fillArc = mk("path", "fill");
+    this.fillArc.setAttribute("stroke-width", arcW);
+
+    if (st === "current") {
+      const f = mk("circle", "face");
+      f.setAttribute("cx", c); f.setAttribute("cy", c); f.setAttribute("r", this.r - 9);
+      f.setAttribute("fill", `url(#${gid}-soft)`);
+      for (const rr of [0.42, 0.62, 0.8]) {
+        const ring = mk("circle", "ring");
+        ring.setAttribute("cx", c); ring.setAttribute("cy", c);
+        ring.setAttribute("r", (this.r - 9) * rr); ring.setAttribute("stroke-width", 1);
+      }
+    }
+    if (st === "hardware") {
+      const bez = mk("circle", "bezel");
+      bez.setAttribute("cx", c); bez.setAttribute("cy", c); bez.setAttribute("r", this.r - 8);
+      bez.setAttribute("fill", `url(#${gid}-bezel)`); bez.setAttribute("stroke-width", 1);
+      const f = mk("circle", "face");
+      f.setAttribute("cx", c); f.setAttribute("cy", c); f.setAttribute("r", this.r - 14);
+      f.setAttribute("fill", `url(#${gid}-deep)`);
+    }
+    if (st === "vintage") {
+      const f = mk("circle", "face");
+      f.setAttribute("cx", c); f.setAttribute("cy", c); f.setAttribute("r", this.r - 9);
+      f.setAttribute("fill", `url(#${gid}-matte)`);
+      const grip = mk("circle", "grip");
+      grip.setAttribute("cx", c); grip.setAttribute("cy", c); grip.setAttribute("r", this.r - 12);
+      grip.setAttribute("stroke-width", 5);
+      grip.setAttribute("stroke-dasharray", "2.2 5.2");
+    }
+
+    if (st !== "ring") {
+      const d = mk("circle", "detent");
+      const [dx, dy] = polar(c, c, this.r, 0);
+      d.setAttribute("cx", dx); d.setAttribute("cy", dy - 4); d.setAttribute("r", 1.6);
+    }
+
+    this.pointerEl = mk("line", "pointer");
+    this.pointerEl.setAttribute("stroke-width", st === "hardware" ? 4 : 3);
+
+    // center value for ring style
+    if (st === "ring") {
+      const t = document.createElementNS(ns, "text");
+      t.setAttribute("x", c); t.setAttribute("y", c + 5);
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("fill", "var(--text-hi)");
+      t.setAttribute("style", "font: 700 17px 'Space Mono', monospace;");
+      svg.appendChild(t);
+      this.centerText = t;
+    }
+
+    const val = document.createElement("div");
+    val.className = "knob-value"; this.valueEl = val;
+    const lab = document.createElement("div");
+    lab.className = "knob-label"; lab.textContent = this.el.dataset.label;
+    this.el.append(svg, val, lab);
+  }
+
+  norm() { return (this.value - this.min) / (this.max - this.min); }
+  fmt(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v) + " st"; }
+
+  set(v, fine) {
+    v = Math.min(this.max, Math.max(this.min, v));
+    if (this.step && !fine) v = Math.round(v / this.step) * this.step;
+    v = Math.round(v * 100) / 100;
+    if (v !== this.value) { this.value = v; this.render(); }
+  }
+
+  render() {
+    const c = this.size / 2, st = this.style;
+    const ang = START + this.norm() * SWEEP;
+    this.fillArc.setAttribute("d", arcPath(c, c, this.arcR, Math.min(0, ang), Math.max(0, ang)));
+    let r0, r1;
+    if (st === "ring")          { r0 = this.arcR - 9;      r1 = this.arcR - 1; }
+    else if (st === "vintage")  { r0 = this.r * 0.45;      r1 = this.r - 10; }
+    else if (st === "hardware") { r0 = this.r * 0.42;      r1 = this.r - 15; }
+    else                        { r0 = this.r * 0.5;       r1 = this.r * 0.77; }
+    const [x0, y0] = polar(c, c, r0, ang);
+    const [x1, y1] = polar(c, c, r1, ang);
+    this.pointerEl.setAttribute("x1", x0); this.pointerEl.setAttribute("y1", y0);
+    this.pointerEl.setAttribute("x2", x1); this.pointerEl.setAttribute("y2", y1);
+    if (this.centerText) this.centerText.textContent = (this.value > 0 ? "+" : "") + this.value;
+    this.valueEl.textContent = this.fmt(this.value);
+  }
+
+  bind() {
+    let startY = 0, startVal = 0;
+    const range = this.max - this.min;
+    this.el.addEventListener("pointerdown", e => {
+      startY = e.clientY; startVal = this.value;
+      this.el.setPointerCapture(e.pointerId);
+      const move = ev => this.set(startVal + (startY - ev.clientY) * range / (ev.shiftKey ? 900 : 220), ev.shiftKey);
+      const up = () => { this.el.removeEventListener("pointermove", move); this.el.removeEventListener("pointerup", up); };
+      this.el.addEventListener("pointermove", move);
+      this.el.addEventListener("pointerup", up);
+    });
+    this.el.addEventListener("dblclick", () => { this.value = this.def; this.render(); });
+    this.el.addEventListener("wheel", e => {
+      e.preventDefault();
+      this.set(this.value - Math.sign(e.deltaY) * (e.shiftKey ? 0.25 : 1), e.shiftKey);
+    }, { passive: false });
+  }
+}
+
+document.querySelectorAll(".knob-unit").forEach(el => new Knob(el, el.dataset.style));
+</script>
+</body>
+</html>
