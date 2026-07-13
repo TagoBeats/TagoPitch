@@ -113,7 +113,9 @@ juce::AudioBuffer<float> renderOffline (const juce::AudioBuffer<float>& input, d
         outOff[(size_t) c] = outPtr[(size_t) c] + n;
     stretch.flush (outOff.data(), outLat);
 
-    // wet = out[outLat : outLat + n], y = (1 - mix) * dry + mix * wet, then gain
+    // wet = out[outLat : outLat + n] * level comp (scalar like the prototype),
+    // y = (1 - mix) * dry + mix * wet, then gain
+    const float comp = tagopitch::PitchEngine::levelCompGain (s.pitch);
     const float g = juce::Decibels::decibelsToGain (s.gainDb);
     juce::AudioBuffer<float> result (channels, n);
     for (int c = 0; c < channels; ++c)
@@ -122,7 +124,7 @@ juce::AudioBuffer<float> renderOffline (const juce::AudioBuffer<float>& input, d
         const float* wet = out[(size_t) c].data() + outLat;
         float* y = result.getWritePointer (c);
         for (int i = 0; i < n; ++i)
-            y[i] = ((1.0f - s.mix) * dry[i] + s.mix * wet[i]) * g;
+            y[i] = ((1.0f - s.mix) * dry[i] + s.mix * comp * wet[i]) * g;
     }
 
     std::cout << "offline latency=" << (inLat + outLat) << " samples\n";

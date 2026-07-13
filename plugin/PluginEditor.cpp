@@ -58,7 +58,7 @@ TagoPitchEditor::TagoPitchEditor (TagoPitchProcessor& p)
       bypassAttachment (*p.apvts.getParameter (tagopitch::param::bypass), bypassRelay, nullptr)
 {
     addAndMakeVisible (browser);
- 
+
 #if TAGOPITCH_DEV_UI
     browser.goToURL ("http://localhost:5173");
 #else

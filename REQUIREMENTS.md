@@ -45,9 +45,13 @@ versteckter Parameter (per State setzbar), ab v2 intern per Pitch-Detection nach
    Tonality-Limit fest auf **12 kHz** (Hörtest 13.07.: deutlich weniger Grain als die
    8-kHz-Empfehlung, bestätigt auf up5/up12 male, ohne Regression bei female/downshift).
    Engine-Konfiguration bleibt `presetDefault` (120/30 ms), dichteres Overlap brachte hörbar nichts.
-2. **Reihenfolge:** Input → Pitch/Formant (signalsmith) → Mix (Dry/Wet, latenzkompensiertes Dry-Signal)
+2. **Reihenfolge:** Input → Pitch/Formant (signalsmith) → Pegel-Kompensation (aufs Wet)
+   → Mix (Dry/Wet, latenzkompensiertes Dry-Signal)
    → Output-Gain (`gain_db`, nach dem Mix, gerampt) → Output.
    Referenz für alle Verhaltensfragen: `tagodsp.pitch.PitchShifter` (8/8 Tests grün, Parameter-Parität).
+   **Pegel-Kompensation:** gemessene 25-Punkte-Tabelle pro Halbton (13.07., RMS wet vs dry
+   auf beiden Test-Vocals, bis −6 dB Verlust bei +10), 0 dB bei Pitch 0, im Plugin 20 ms geglättet.
+   Gleiche Tabelle im Prototyp (`level_compensation=True`).
 3. **Bypass:** echter Passthrough (aktuelles Verhalten beibehalten), Host-Bypass via
    `getBypassParameter()` bleibt verdrahtet.
 4. **Parameterglättung:** `gain_db` ist bereits gerampt (20 ms). Pitch/Formant/Mix dürfen beim Port
@@ -96,8 +100,9 @@ Styles und die Knob-Geometrie so wörtlich wie möglich.
 - Preset-Browser: ‹ / › blättern zyklisch durch die Preset-Liste, Name mittig (uppercase, mono).
   v1-Presets (aus dem Mockup übernehmen):
   - INIT: pitch 0, formant 0, mix 100, gain 0
-  - OCTAVE UP: pitch +12, formant 0, mix 50, gain 0
-  - DEEP VOICE: pitch −12, formant −2, mix 100, gain −4
+  - OCTAVE UP: pitch +12, formant 0, mix 100, gain 0 (voll wet seit dem 12-kHz-Tuning, 13.07.)
+  - DEEP VOICE: pitch −12, formant −12, mix 100, gain −4 (Formanten folgen dem Pitch;
+    gewann den down12-Hörtest gegen die reine Hüllkurven-Schätzung, 13.07.)
   - DOUBLER: pitch 0, formant +3, mix 45, gain 0
   Presets setzen nur Parameterwerte (kein eigenes Preset-Dateiformat in v1). Host-State
   (APVTS-XML) bleibt die einzige Persistenz.

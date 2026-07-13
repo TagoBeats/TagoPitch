@@ -64,9 +64,12 @@ export const PARAMS: Record<string, ParamSpec> = {
 };
 
 // v1 presets (REQUIREMENTS.md 5.3): parameter values only, no file format.
+// OCTAVE UP full wet since the 12 kHz tonality tuning (2026-07-13).
+// DEEP VOICE formant -12: lets the formants follow the pitch down, which won
+// the down12 listening test against the plain envelope estimate.
 export const PRESETS: Array<[string, Record<string, number>]> = [
   ["INIT", { pitch: 0, formant: 0, mix: 100, gain: 0 }],
-  ["OCTAVE UP", { pitch: 12, formant: 0, mix: 50, gain: 0 }],
-  ["DEEP VOICE", { pitch: -12, formant: -2, mix: 100, gain: -4 }],
+  ["OCTAVE UP", { pitch: 12, formant: 0, mix: 100, gain: 0 }],
+  ["DEEP VOICE", { pitch: -12, formant: -12, mix: 100, gain: -4 }],
   ["DOUBLER", { pitch: 0, formant: 3, mix: 45, gain: 0 }],
 ];

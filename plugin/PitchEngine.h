@@ -21,6 +21,24 @@ public:
     // vocals (up5/up12), no regressions on female material or downshifts.
     static constexpr float tonalityLimitHz = 12000.0f;
 
+    // Wet level loss per semitone, measured on the two v1 test vocals
+    // (2026-07-13, RMS wet vs dry). Index 0 = -12 st. Same table as the
+    // prototype's _LEVEL_COMP_DB; 0 dB at pitch 0 keeps neutral transparent.
+    static constexpr float levelCompDb[25] = {
+        -0.9f, -0.2f, 0.2f, 0.3f, 0.6f, 0.6f, 1.1f, 1.3f, 1.5f, 1.6f, 1.6f, 1.0f, 0.0f,
+        1.3f, 2.4f, 3.1f, 3.6f, 4.1f, 4.6f, 4.6f, 5.4f, 5.8f, 6.2f, 5.9f, 5.4f
+    };
+
+    static float levelCompGain (float pitchSemitones)
+    {
+        const float p = juce::jlimit (-12.0f, 12.0f, pitchSemitones);
+        const float pos = p + 12.0f;
+        const int i = juce::jmin ((int) pos, 23);
+        const float frac = pos - (float) i;
+        const float db = levelCompDb[i] + frac * (levelCompDb[i + 1] - levelCompDb[i]);
+        return juce::Decibels::decibelsToGain (db);
+    }
+
     void prepare (double sampleRate, int maxBlockSize, int numChannels)
     {
         sr = sampleRate;
@@ -37,7 +55,8 @@ public:
         dryDelay.setDelay ((float) latencySamples());
 
         mixSmoothed.reset (sampleRate, 0.02);
-        snapMixOnNextSet = true;
+        compSmoothed.reset (sampleRate, 0.02);
+        snapOnNextSet = true;
     }
 
     // Total engine latency the host has to compensate.
@@ -52,6 +71,7 @@ public:
         stretch.reset();
         dryDelay.reset();
         mixSmoothed.setCurrentAndTargetValue (mixSmoothed.getTargetValue());
+        compSmoothed.setCurrentAndTargetValue (compSmoothed.getTargetValue());
     }
 
     // Call once per block before process(). mix is 0..1 as in the prototype.
@@ -61,15 +81,18 @@ public:
         // true = preserve_formants (AlterBoy behavior, prototype default)
         stretch.setFormantSemitones (formantSemitones, true);
         stretch.setFormantBase (formantBaseHz);
-        // First value after prepare() snaps so playback never starts mid-ramp.
-        if (snapMixOnNextSet)
+        const float comp = levelCompGain (pitchSemitones);
+        // First values after prepare() snap so playback never starts mid-ramp.
+        if (snapOnNextSet)
         {
             mixSmoothed.setCurrentAndTargetValue (mix);
-            snapMixOnNextSet = false;
+            compSmoothed.setCurrentAndTargetValue (comp);
+            snapOnNextSet = false;
         }
         else
         {
             mixSmoothed.setTargetValue (mix);
+            compSmoothed.setTargetValue (comp);
         }
     }
 
@@ -87,11 +110,12 @@ public:
         for (int i = 0; i < n; ++i)
         {
             const float m = mixSmoothed.getNextValue();
+            const float comp = compSmoothed.getNextValue();
             for (int c = 0; c < channels; ++c)
             {
                 dryDelay.pushSample (c, buffer.getSample (c, i));
                 const float dry = dryDelay.popSample (c);
-                buffer.setSample (c, i, (1.0f - m) * dry + m * wetBuffer.getSample (c, i));
+                buffer.setSample (c, i, (1.0f - m) * dry + m * comp * wetBuffer.getSample (c, i));
             }
         }
     }
@@ -101,7 +125,8 @@ private:
     juce::AudioBuffer<float> wetBuffer;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::None> dryDelay;
     juce::SmoothedValue<float> mixSmoothed;
-    bool snapMixOnNextSet = true;
+    juce::SmoothedValue<float> compSmoothed { 1.0f };
+    bool snapOnNextSet = true;
     double sr = 44100.0;
     int channels = 2;
 };

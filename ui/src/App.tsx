@@ -2,6 +2,7 @@
 // Markup and class names match the mockup so the styles stay literal.
 
 import { useEffect, useMemo, useState } from "react";
+import type React from "react";
 import Knob from "./Knob";
 import Meters from "./Meters";
 import { PARAMS, PRESETS } from "./params";
@@ -28,6 +29,7 @@ export default function App() {
   useEffect(() => params.gain.subscribe(() => setGainDb(params.gain.getScaled())), [params]);
 
   const [presetIdx, setPresetIdx] = useState(0);
+  const [listOpen, setListOpen] = useState(false);
   const applyPreset = (i: number) => {
     const idx = (i + PRESETS.length) % PRESETS.length;
     setPresetIdx(idx);
@@ -35,20 +37,57 @@ export default function App() {
     for (const [key, v] of Object.entries(vals)) params[key].setScaled(v);
   };
 
+  useEffect(() => {
+    // native right-click menu (reload etc.) makes no sense in a plugin window
+    const prevent = (e: Event) => e.preventDefault();
+    window.addEventListener("contextmenu", prevent);
+    return () => window.removeEventListener("contextmenu", prevent);
+  }, []);
+
+  useEffect(() => {
+    if (!listOpen) return;
+    const close = () => setListOpen(false);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [listOpen]);
+
+  const stopPointer = (e: React.PointerEvent) => e.stopPropagation();
+
   return (
-    <div id="plugin" className={bypassed ? "bypassed" : ""}>
+    <div id="plugin" className={(bypassed ? "bypassed" : "") + (listOpen ? " preset-open" : "")}>
       <header>
         <div className="wordmark">TAGOPITCH</div>
         <div className="preset">
           <button id="prev" title="Previous preset" onClick={() => applyPreset(presetIdx - 1)}>
             ‹
           </button>
-          <div className="name" id="preset-name">
+          <div
+            className="name"
+            id="preset-name"
+            onPointerDown={stopPointer}
+            onClick={() => setListOpen((o) => !o)}
+          >
             {PRESETS[presetIdx][0]}
           </div>
           <button id="next" title="Next preset" onClick={() => applyPreset(presetIdx + 1)}>
             ›
           </button>
+          {listOpen && (
+            <div className="preset-list" onPointerDown={stopPointer}>
+              {PRESETS.map(([name], i) => (
+                <div
+                  key={name}
+                  className={"preset-item" + (i === presetIdx ? " active" : "")}
+                  onClick={() => {
+                    applyPreset(i);
+                    setListOpen(false);
+                  }}
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className="header-right">
           <span className="header-meta">Mono&nbsp;·&nbsp;V1</span>

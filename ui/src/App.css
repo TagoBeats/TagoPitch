@@ -76,6 +76,7 @@ header {
   white-space: nowrap;
 }
 .preset {
+  position: relative;
   display: flex; align-items: center; gap: 2px;
   background: var(--bg-deep);
   border: 1px solid var(--hairline);
@@ -95,7 +96,34 @@ header {
   font-size: 10px; font-weight: 700;
   letter-spacing: 0.2em; text-transform: uppercase;
   color: var(--text);
+  cursor: pointer;
 }
+.preset .name:hover { color: var(--accent); }
+
+/* dropdown with all presets, opened by clicking the name */
+/* while open, lift the header above the control deck and texture layers */
+#plugin.preset-open header { z-index: 3; }
+.preset-list {
+  position: absolute;
+  top: calc(100% + 5px); left: 0; right: 0;
+  background: var(--bg-deep);
+  border: 1px solid var(--hairline);
+  border-radius: 5px;
+  padding: 3px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+}
+.preset-item {
+  font-family: "Space Mono", monospace;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.2em; text-transform: uppercase;
+  text-align: center;
+  color: var(--dim);
+  padding: 6px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.preset-item:hover { color: var(--accent); }
+.preset-item.active { color: var(--text); background: rgba(236, 231, 222, 0.05); }
 
 .header-right { display: flex; align-items: center; gap: 12px; }
 .header-meta {
