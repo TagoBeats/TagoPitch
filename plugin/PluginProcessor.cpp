@@ -59,12 +59,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout TagoPitchProcessor::createLa
 
 void TagoPitchProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    // Order matters: prepare() snaps the ramp to the current target, so the
+    // first block starts at the parameter value instead of ramping from 0 dB.
+    outputGain.setRampDurationSeconds (0.02);
+    outputGain.setGainDecibels (apvts.getRawParameterValue (tagopitch::param::gain)->load());
     outputGain.prepare ({ sampleRate, (juce::uint32) samplesPerBlock,
                           (juce::uint32) getTotalNumOutputChannels() });
-    outputGain.setRampDurationSeconds (0.02);
-    // Passthrough skeleton for now. The signalsmith-stretch port (parity with
-    // tagodsp.pitch.PitchShifter) lands in the v1 implementation step and will
-    // report its latency here via setLatencySamples().
+
+    engine.prepare (sampleRate, samplesPerBlock, getTotalNumOutputChannels());
+    setLatencySamples (engine.latencySamples());
 }
 
 bool TagoPitchProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -75,16 +78,50 @@ bool TagoPitchProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
     return out == layouts.getMainInputChannelSet();
 }
 
+float TagoPitchProcessor::bufferPeak (const juce::AudioBuffer<float>& buffer) noexcept
+{
+    float peak = 0.0f;
+    for (int c = 0; c < buffer.getNumChannels(); ++c)
+        peak = juce::jmax (peak, buffer.getMagnitude (c, 0, buffer.getNumSamples()));
+    return peak;
+}
+
+void TagoPitchProcessor::storePeak (std::atomic<float>& peak, float value) noexcept
+{
+    // Keep the max until the editor timer consumes it (exchange with 0).
+    float current = peak.load (std::memory_order_relaxed);
+    while (value > current
+           && ! peak.compare_exchange_weak (current, value, std::memory_order_relaxed))
+    {
+    }
+}
+
 void TagoPitchProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
 
-    if (bypassParam->get())
-        return;
+    const float inPeak = bufferPeak (buffer);
+    storePeak (inputPeak, inPeak);
 
-    outputGain.setGainDecibels (apvts.getRawParameterValue (tagopitch::param::gain)->load());
+    if (bypassParam->get())
+    {
+        storePeak (outputPeak, inPeak);
+        return;
+    }
+
+    using namespace tagopitch::param;
+    engine.setParameters (
+        (float) apvts.getRawParameterValue (pitch)->load(),
+        apvts.getRawParameterValue (formant)->load(),
+        apvts.getRawParameterValue (formantBase)->load(),
+        apvts.getRawParameterValue (mix)->load() * 0.01f);
+    engine.process (buffer);
+
+    outputGain.setGainDecibels (apvts.getRawParameterValue (gain)->load());
     juce::dsp::AudioBlock<float> block (buffer);
     outputGain.process (juce::dsp::ProcessContextReplacing<float> (block));
+
+    storePeak (outputPeak, bufferPeak (buffer));
 }
 
 void TagoPitchProcessor::getStateInformation (juce::MemoryBlock& destData)

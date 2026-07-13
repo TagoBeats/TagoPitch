@@ -41,6 +41,7 @@ std::optional<juce::WebBrowserComponent::Resource> TagoPitchEditor::lookupResour
 
 TagoPitchEditor::TagoPitchEditor (TagoPitchProcessor& p)
     : AudioProcessorEditor (p),
+      pitchProcessor (p),
       browser (juce::WebBrowserComponent::Options {}
                    .withBackend (juce::WebBrowserComponent::Options::Backend::defaultBackend)
                    .withNativeIntegrationEnabled()
@@ -57,7 +58,7 @@ TagoPitchEditor::TagoPitchEditor (TagoPitchProcessor& p)
       bypassAttachment (*p.apvts.getParameter (tagopitch::param::bypass), bypassRelay, nullptr)
 {
     addAndMakeVisible (browser);
-
+ 
 #if TAGOPITCH_DEV_UI
     browser.goToURL ("http://localhost:5173");
 #else
@@ -66,6 +67,16 @@ TagoPitchEditor::TagoPitchEditor (TagoPitchProcessor& p)
 
     // Mockup canvas is 560x360 (see mockup/index.html).
     setSize (560, 360);
+
+    startTimerHz (30);
+}
+
+void TagoPitchEditor::timerCallback()
+{
+    auto* levels = new juce::DynamicObject();
+    levels->setProperty ("in", pitchProcessor.readInputPeak());
+    levels->setProperty ("out", pitchProcessor.readOutputPeak());
+    browser.emitEventIfBrowserIsVisible ("levels", juce::var (levels));
 }
 
 void TagoPitchEditor::resized()

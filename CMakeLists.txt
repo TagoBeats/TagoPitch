@@ -25,6 +25,15 @@ target_sources(TagoPitch PRIVATE
     plugin/PluginProcessor.cpp
     plugin/PluginEditor.cpp)
 
+# signalsmith-stretch engine, vendored 1:1 from the tagodsp prototype for engine parity.
+# Same FFT backend as the Python build: Accelerate on Apple.
+# SYSTEM keeps the strict warning flags quiet for vendored code we do not touch.
+target_include_directories(TagoPitch SYSTEM PRIVATE third_party)
+if(APPLE)
+    target_compile_definitions(TagoPitch PRIVATE SIGNALSMITH_USE_ACCELERATE ACCELERATE_NEW_LAPACK)
+    target_link_libraries(TagoPitch PRIVATE "-framework Accelerate")
+endif()
+
 # The bundled UI: ui/webui.zip is produced by scripts/build-ui.sh from the Vite build.
 if(NOT TAGOPITCH_DEV_UI AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ui/webui.zip")
     message(FATAL_ERROR "ui/webui.zip missing. Run scripts/build-ui.sh first or configure with -DTAGOPITCH_DEV_UI=ON.")
@@ -51,3 +60,24 @@ target_link_libraries(TagoPitch
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# Offline render CLI for the delta comparison against the Python prototype.
+# Dev tool only, opt in with -DTAGOPITCH_BUILD_TOOLS=ON.
+option(TAGOPITCH_BUILD_TOOLS "Build the offline render CLI" OFF)
+if(TAGOPITCH_BUILD_TOOLS)
+    juce_add_console_app(TagoPitchRender PRODUCT_NAME "TagoPitchRender")
+    target_sources(TagoPitchRender PRIVATE tools/render_cli.cpp)
+    target_include_directories(TagoPitchRender SYSTEM PRIVATE third_party)
+    target_compile_definitions(TagoPitchRender PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        SIGNALSMITH_USE_ACCELERATE
+        ACCELERATE_NEW_LAPACK)
+    target_link_libraries(TagoPitchRender PRIVATE
+        juce::juce_audio_formats
+        juce::juce_dsp
+        "-framework Accelerate"
+        PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags)
+endif()

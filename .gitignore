@@ -3,3 +3,4 @@ ui/node_modules/
 ui/dist/
 ui/webui.zip
 .DS_Store
+.idea/

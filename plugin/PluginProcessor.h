@@ -4,6 +4,8 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_dsp/juce_dsp.h>
 
+#include "PitchEngine.h"
+
 namespace tagopitch::param
 {
 // IDs are the contract between processor, WebView UI and the Python prototype
@@ -48,11 +50,23 @@ public:
 
     juce::AudioProcessorValueTreeState apvts;
 
+    // Block peaks for the UI meters (in = pre engine, out = post gain).
+    // Written on the audio thread, read by the editor's timer.
+    float readInputPeak() noexcept { return inputPeak.exchange (0.0f, std::memory_order_relaxed); }
+    float readOutputPeak() noexcept { return outputPeak.exchange (0.0f, std::memory_order_relaxed); }
+
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 
+    static float bufferPeak (const juce::AudioBuffer<float>& buffer) noexcept;
+    void storePeak (std::atomic<float>& peak, float value) noexcept;
+
     juce::AudioParameterBool* bypassParam = nullptr;
     juce::dsp::Gain<float> outputGain;
+    tagopitch::PitchEngine engine;
+
+    std::atomic<float> inputPeak { 0.0f };
+    std::atomic<float> outputPeak { 0.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TagoPitchProcessor)
 };

@@ -1,72 +1,79 @@
-import { useEffect, useState } from "react";
-import * as Juce from "juce-framework-frontend";
+// TagoPitch v1 UI, ported 1:1 from mockup/index.html (approved 12.07.2026).
+// Markup and class names match the mockup so the styles stay literal.
+
+import { useEffect, useMemo, useState } from "react";
+import Knob from "./Knob";
+import Meters from "./Meters";
+import { PARAMS, PRESETS } from "./params";
+import { makeParam, makeToggle } from "./bridge";
 import "./App.css";
 
-// Deliberately bare-bones: this page only proves the parameter binding
-// end to end. The real UI is ported from mockup/index.html later.
-
-function ParamSlider({ id, label }: { id: string; label: string }) {
-  const state = Juce.getSliderState(id);
-  const [value, setValue] = useState(state.getNormalisedValue());
-
-  useEffect(() => {
-    const listenerId = state.valueChangedEvent.addListener(() =>
-      setValue(state.getNormalisedValue())
-    );
-    return () => state.valueChangedEvent.removeListener(listenerId);
-  }, [state]);
-
-  return (
-    <label className="param">
-      <span>{label}</span>
-      <input
-        type="range"
-        min={0}
-        max={1}
-        step={0.001}
-        value={value}
-        onChange={(e) => state.setNormalisedValue(Number(e.target.value))}
-        onMouseDown={() => state.sliderDragStarted()}
-        onMouseUp={() => state.sliderDragEnded()}
-      />
-      <code>{state.getScaledValue().toFixed(2)}</code>
-    </label>
-  );
-}
-
-function BypassToggle() {
-  const state = Juce.getToggleState("bypass");
-  const [on, setOn] = useState(state.getValue());
-
-  useEffect(() => {
-    const listenerId = state.valueChangedEvent.addListener(() =>
-      setOn(state.getValue())
-    );
-    return () => state.valueChangedEvent.removeListener(listenerId);
-  }, [state]);
-
-  return (
-    <label className="param">
-      <span>Bypass</span>
-      <input
-        type="checkbox"
-        checked={on}
-        onChange={(e) => state.setValue(e.target.checked)}
-      />
-      <code>{on ? "on" : "off"}</code>
-    </label>
-  );
-}
-
 export default function App() {
+  const params = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(PARAMS).map(([key, spec]) => [
+          key,
+          makeParam(spec.id, spec.min, spec.max, spec.def),
+        ])
+      ),
+    []
+  );
+  const bypassToggle = useMemo(() => makeToggle("bypass"), []);
+
+  const [bypassed, setBypassed] = useState(bypassToggle.get());
+  useEffect(() => bypassToggle.subscribe(() => setBypassed(bypassToggle.get())), [bypassToggle]);
+
+  const [gainDb, setGainDb] = useState(params.gain.getScaled());
+  useEffect(() => params.gain.subscribe(() => setGainDb(params.gain.getScaled())), [params]);
+
+  const [presetIdx, setPresetIdx] = useState(0);
+  const applyPreset = (i: number) => {
+    const idx = (i + PRESETS.length) % PRESETS.length;
+    setPresetIdx(idx);
+    const [, vals] = PRESETS[idx];
+    for (const [key, v] of Object.entries(vals)) params[key].setScaled(v);
+  };
+
   return (
-    <main>
-      <h1>TagoPitch – Binding-Test</h1>
-      <ParamSlider id="pitch_semitones" label="Pitch" />
-      <ParamSlider id="formant_semitones" label="Formant" />
-      <ParamSlider id="mix" label="Mix" />
-      <ParamSlider id="gain_db" label="Gain" />
-      <BypassToggle />
-    </main>
+    <div id="plugin" className={bypassed ? "bypassed" : ""}>
+      <header>
+        <div className="wordmark">TAGOPITCH</div>
+        <div className="preset">
+          <button id="prev" title="Previous preset" onClick={() => applyPreset(presetIdx - 1)}>
+            ‹
+          </button>
+          <div className="name" id="preset-name">
+            {PRESETS[presetIdx][0]}
+          </div>
+          <button id="next" title="Next preset" onClick={() => applyPreset(presetIdx + 1)}>
+            ›
+          </button>
+        </div>
+        <div className="header-right">
+          <span className="header-meta">Mono&nbsp;·&nbsp;V1</span>
+          <button id="power" title="Bypass" onClick={() => bypassToggle.set(!bypassed)}>
+            <svg viewBox="0 0 24 24">
+              <path d="M12 3v8" />
+              <path d="M6.2 6.2a8 8 0 1 0 11.6 0" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main>
+        <Knob spec={PARAMS.pitch} param={params.pitch} />
+        <Knob spec={PARAMS.formant} param={params.formant} />
+        <div className="stack">
+          <Knob spec={PARAMS.mix} param={params.mix} />
+          <Knob spec={PARAMS.gain} param={params.gain} />
+        </div>
+        <Meters bypassed={bypassed} gainDb={gainDb} />
+      </main>
+
+      <footer>
+        <span>TagoBeats</span>
+      </footer>
+    </div>
   );
 }

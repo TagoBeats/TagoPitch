@@ -42,6 +42,9 @@ versteckter Parameter (per State setzbar), ab v2 intern per Pitch-Detection nach
 1. **Engine:** signalsmith-stretch als Pitch/Formant-Engine. Die Header werden 1:1 aus
    `~/Documents/tagodsp` gevendort (inkl. `signalsmith-linear` 0.3.1, auf Apple mit Accelerate-FFT),
    damit Plugin und Python-Prototyp exakt dieselbe Engine fahren (Engine-Parität).
+   Tonality-Limit fest auf **12 kHz** (Hörtest 13.07.: deutlich weniger Grain als die
+   8-kHz-Empfehlung, bestätigt auf up5/up12 male, ohne Regression bei female/downshift).
+   Engine-Konfiguration bleibt `presetDefault` (120/30 ms), dichteres Overlap brachte hörbar nichts.
 2. **Reihenfolge:** Input → Pitch/Formant (signalsmith) → Mix (Dry/Wet, latenzkompensiertes Dry-Signal)
    → Output-Gain (`gain_db`, nach dem Mix, gerampt) → Output.
    Referenz für alle Verhaltensfragen: `tagodsp.pitch.PitchShifter` (8/8 Tests grün, Parameter-Parität).

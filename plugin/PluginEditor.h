@@ -3,7 +3,8 @@
 #include "PluginProcessor.h"
 #include <juce_gui_extra/juce_gui_extra.h>
 
-class TagoPitchEditor : public juce::AudioProcessorEditor
+class TagoPitchEditor : public juce::AudioProcessorEditor,
+                        private juce::Timer
 {
 public:
     explicit TagoPitchEditor (TagoPitchProcessor&);
@@ -11,6 +12,10 @@ public:
     void resized() override;
 
 private:
+    // Pushes the block peaks from the processor to the UI meters (~30 Hz).
+    void timerCallback() override;
+
+    TagoPitchProcessor& pitchProcessor;
     static std::optional<juce::WebBrowserComponent::Resource> lookupResource (const juce::String& url);
 
     // Relays bridge WebView controls to APVTS parameters; their names are the
