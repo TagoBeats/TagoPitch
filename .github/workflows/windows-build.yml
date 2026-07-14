@@ -7,6 +7,9 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: write
+
 jobs:
   vst3:
     runs-on: windows-latest
@@ -47,3 +50,15 @@ jobs:
         with:
           name: TagoPitch-VST3-Windows
           path: build/TagoPitch_artefacts/Release/VST3/TagoPitch.vst3
+
+      # On tag builds, attach the zipped VST3 to the GitHub release so the
+      # macOS pkg and the Windows build hang off the same release.
+      - name: Attach VST3 zip to release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd build/TagoPitch_artefacts/Release/VST3
+          7z a -tzip "TagoPitch-${{ github.ref_name }}-Windows-VST3.zip" TagoPitch.vst3 > /dev/null
+          gh release upload "${{ github.ref_name }}" "TagoPitch-${{ github.ref_name }}-Windows-VST3.zip" --clobber --repo "${{ github.repository }}"
