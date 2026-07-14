@@ -48,8 +48,8 @@ AU="$ART/AU/TagoPitch.component"
 [[ -d "$VST3" && -d "$AU" ]] || { echo "Build artefacts missing" >&2; exit 1; }
 
 echo "==> Verifying universal binary"
-lipo -verify_arch "$VST3/Contents/MacOS/TagoPitch" arm64 x86_64
-lipo -verify_arch "$AU/Contents/MacOS/TagoPitch" arm64 x86_64
+lipo "$VST3/Contents/MacOS/TagoPitch" -verify_arch arm64 x86_64
+lipo "$AU/Contents/MacOS/TagoPitch" -verify_arch arm64 x86_64
 
 echo "==> Embedding third-party attribution in the bundles"
 for BUNDLE in "$VST3" "$AU"; do
