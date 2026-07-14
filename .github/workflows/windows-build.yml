@@ -1,0 +1,44 @@
+name: Windows build
+
+# Robin has no Windows machine: this runner is the only Windows build + the
+# testers are colleagues, so keep the artifact easy to grab from the run page.
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  vst3:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install UI dependencies
+        working-directory: ui
+        run: npm ci
+
+      - name: Build UI bundle
+        run: bash scripts/build-ui.sh
+
+      - name: Configure
+        run: cmake -B build -DTAGOPITCH_DEV_UI=OFF
+
+      - name: Build VST3
+        run: cmake --build build --config Release --target TagoPitch_VST3
+
+      - name: Embed third-party attribution
+        shell: bash
+        run: |
+          mkdir -p "build/TagoPitch_artefacts/Release/VST3/TagoPitch.vst3/Contents/Resources"
+          cp THIRD_PARTY_LICENSES.txt "build/TagoPitch_artefacts/Release/VST3/TagoPitch.vst3/Contents/Resources/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TagoPitch-VST3-Windows
+          path: build/TagoPitch_artefacts/Release/VST3/TagoPitch.vst3

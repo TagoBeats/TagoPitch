@@ -43,7 +43,17 @@ TagoPitchEditor::TagoPitchEditor (TagoPitchProcessor& p)
     : AudioProcessorEditor (p),
       pitchProcessor (p),
       browser (juce::WebBrowserComponent::Options {}
+                   // Windows must opt in to WebView2; the default there is the legacy
+                   // IE engine, which cannot run the React UI. macOS default is WKWebView.
+#if JUCE_WINDOWS
+                   .withBackend (juce::WebBrowserComponent::Options::Backend::webview2)
+                   .withWinWebView2Options (
+                       juce::WebBrowserComponent::Options::WinWebView2 {}
+                           .withUserDataFolder (juce::File::getSpecialLocation (
+                               juce::File::SpecialLocationType::tempDirectory)))
+#else
                    .withBackend (juce::WebBrowserComponent::Options::Backend::defaultBackend)
+#endif
                    .withNativeIntegrationEnabled()
                    .withResourceProvider (lookupResource)
                    .withOptionsFrom (pitchRelay)
