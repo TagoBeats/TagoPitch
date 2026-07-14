@@ -26,8 +26,13 @@ jobs:
       - name: Build UI bundle
         run: bash scripts/build-ui.sh
 
+      # JUCE links WebView2LoaderStatic.lib from the NuGet package; the version
+      # matches the one JUCE's FindWebView2.cmake recommends.
+      - name: Install WebView2 SDK
+        run: nuget install Microsoft.Web.WebView2 -Version 1.0.3485.44 -OutputDirectory nuget-packages
+
       - name: Configure
-        run: cmake -B build -DTAGOPITCH_DEV_UI=OFF
+        run: cmake -B build -DTAGOPITCH_DEV_UI=OFF -DJUCE_WEBVIEW2_PACKAGE_LOCATION="${{ github.workspace }}/nuget-packages"
 
       - name: Build VST3
         run: cmake --build build --config Release --target TagoPitch_VST3
