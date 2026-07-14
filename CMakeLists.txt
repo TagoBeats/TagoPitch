@@ -34,6 +34,11 @@ if(APPLE)
     target_compile_definitions(TagoPitch PRIVATE SIGNALSMITH_USE_ACCELERATE ACCELERATE_NEW_LAPACK)
     target_link_libraries(TagoPitch PRIVATE "-framework Accelerate")
 endif()
+if(WIN32)
+    # NEEDS_WEBVIEW2 only links the WebView2 loader lib; this config macro is what
+    # actually enables the WebView2 backend (and the resource provider) in juce_gui_extra.
+    target_compile_definitions(TagoPitch PRIVATE JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
+endif()
 
 # The bundled UI: ui/webui.zip is produced by scripts/build-ui.sh from the Vite build.
 if(NOT TAGOPITCH_DEV_UI AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ui/webui.zip")
