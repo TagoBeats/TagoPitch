@@ -3,6 +3,19 @@
 
 namespace
 {
+// The approved mockup canvas. The web UI scales itself to any window on this
+// aspect ratio (ui/src/fit.ts), so the editor can be resized freely instead of
+// clipping when a host hands it a different size.
+constexpr int    designWidth  = 560;
+constexpr int    designHeight = 360;
+constexpr double designRatio  = (double) designWidth / (double) designHeight;
+constexpr int    minWidth     = 420;
+constexpr int    maxWidth     = 1680;
+
+const juce::Identifier editorWidthId { "editorWidth" };
+
+int heightForWidth (int width) { return juce::roundToInt (width / designRatio); }
+
 const char* mimeForExtension (const juce::String& ext)
 {
     if (ext == "html") return "text/html";
@@ -75,8 +88,22 @@ TagoPitchEditor::TagoPitchEditor (TagoPitchProcessor& p)
     browser.goToURL (juce::WebBrowserComponent::getResourceProviderRoot());
 #endif
 
-    // Mockup canvas is 560x360 (see mockup/index.html).
-    setSize (560, 360);
+    // Resizable on a locked aspect ratio. Hosts that apply display scaling used
+    // to get a window smaller than the UI and simply cut it off (reported
+    // 24.09.2026 for Cakewalk Sonar and Fender Studio Pro); a resizable editor
+    // lets the host negotiate a size, and the UI scales into whatever it gets.
+    setResizable (true, false);
+
+    if (auto* constrainer = getConstrainer())
+    {
+        constrainer->setFixedAspectRatio (designRatio);
+        constrainer->setSizeLimits (minWidth, heightForWidth (minWidth),
+                                    maxWidth, heightForWidth (maxWidth));
+    }
+
+    const int savedWidth = (int) pitchProcessor.apvts.state.getProperty (editorWidthId, designWidth);
+    const int width      = juce::jlimit (minWidth, maxWidth, savedWidth);
+    setSize (width, heightForWidth (width));
 
     startTimerHz (30);
 }
@@ -92,4 +119,8 @@ void TagoPitchEditor::timerCallback()
 void TagoPitchEditor::resized()
 {
     browser.setBounds (getLocalBounds());
+
+    // Kept on the APVTS tree, so it rides along with getStateInformation and the
+    // window comes back the size the user left it at.
+    pitchProcessor.apvts.state.setProperty (editorWidthId, getWidth(), nullptr);
 }
