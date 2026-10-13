@@ -46,9 +46,18 @@ function juceParam(id: string, min: number, max: number): ParamHandle {
     setScaled: (v) => state.setNormalisedValue((v - min) / (max - min)),
     dragStarted: () => state.sliderDragStarted(),
     dragEnded: () => state.sliderDragEnded(),
+    // Also listen to propertiesChanged: the host pushes range + initial value
+    // shortly after page load, and that push must reach the UI state too.
+    // Without it the UI keeps the defaults it read before the push arrived,
+    // which looks exactly like a plugin that forgot its settings (fixed in
+    // TagoClip on 15.07.2026, ported here 13.10.2026).
     subscribe: (fn) => {
       const l = state.valueChangedEvent.addListener(fn);
-      return () => state.valueChangedEvent.removeListener(l);
+      const p = state.propertiesChangedEvent.addListener(fn);
+      return () => {
+        state.valueChangedEvent.removeListener(l);
+        state.propertiesChangedEvent.removeListener(p);
+      };
     },
   };
 }

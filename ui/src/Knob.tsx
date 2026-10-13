@@ -27,7 +27,12 @@ export default function Knob({ spec, param }: { spec: ParamSpec; param: ParamHan
   const [value, setValue] = useState(param.getScaled());
   const drag = useRef({ startY: 0, startVal: 0 });
 
-  useEffect(() => param.subscribe(() => setValue(param.getScaled())), [param]);
+  // Re-read on mount: the host pushes the real value only after the page is up,
+  // so the useState initialiser above can still be the plain default.
+  useEffect(() => {
+    setValue(param.getScaled());
+    return param.subscribe(() => setValue(param.getScaled()));
+  }, [param]);
 
   const set = (v: number, fine: boolean) => {
     v = Math.min(spec.max, Math.max(spec.min, v));
