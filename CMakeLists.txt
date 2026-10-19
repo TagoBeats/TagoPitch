@@ -40,6 +40,14 @@ if(WIN32)
     target_compile_definitions(TagoPitch PRIVATE JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1)
 endif()
 
+# Debug symbols for Release on Windows, so a crash dump from a tester can be
+# read against the exact build. /OPT:REF and /OPT:ICF keep the optimised
+# output that /DEBUG would otherwise turn off.
+if(MSVC)
+    target_compile_options(TagoPitch PRIVATE /Zi)
+    target_link_options(TagoPitch_VST3 PRIVATE /DEBUG /OPT:REF /OPT:ICF)
+endif()
+
 # The bundled UI: ui/webui.zip is produced by scripts/build-ui.sh from the Vite build.
 if(NOT TAGOPITCH_DEV_UI AND NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/ui/webui.zip")
     message(FATAL_ERROR "ui/webui.zip missing. Run scripts/build-ui.sh first or configure with -DTAGOPITCH_DEV_UI=ON.")
