@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(TagoPitch VERSION 1.0.3)
+project(TagoPitch VERSION 1.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,15 +8,29 @@ option(TAGOPITCH_DEV_UI "Load the plugin UI from the Vite dev server (http://loc
 
 add_subdirectory(third_party/JUCE)
 
+# AAX (Pro Tools) is macOS only for now. Windows keeps building VST3 only until
+# Windows AAX signing is possible.
+set(TAGOPITCH_FORMATS AU VST3 Standalone)
+if(APPLE)
+    list(APPEND TAGOPITCH_FORMATS AAX)
+endif()
+
 juce_add_plugin(TagoPitch
     COMPANY_NAME "TagoBeats"
     BUNDLE_ID com.tagobeats.tagopitch
     PLUGIN_MANUFACTURER_CODE Tago
     PLUGIN_CODE TgPt
-    FORMATS AU VST3 Standalone
+    FORMATS ${TAGOPITCH_FORMATS}
     PRODUCT_NAME "TagoPitch"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
+    # AAX: JUCE 8 bundles the AAX SDK and wires it up on its own. The identifier
+    # must stay stable once a build ships, Pro Tools keys presets and sessions on
+    # it. Mono and stereo in/out are declared by
+    # TagoPitchProcessor::isBusesLayoutSupported. Signing needs PACE wraptool,
+    # see scripts/sign_aax.sh.
+    AAX_IDENTIFIER com.tagobeats.tagopitch
+    AAX_CATEGORY PitchShift
     NEEDS_WEB_BROWSER TRUE
     NEEDS_WEBVIEW2 TRUE
     MICROPHONE_PERMISSION_ENABLED TRUE

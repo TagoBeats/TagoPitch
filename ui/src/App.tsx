@@ -143,7 +143,7 @@ export default function App() {
           )}
         </div>
         <div className="header-right">
-          <span className="header-meta">Mono&nbsp;·&nbsp;V1</span>
+          <span className="header-meta">Mono&nbsp;·&nbsp;V1.1</span>
           <button id="power" title="Bypass" onClick={() => bypassToggle.set(!bypassed)}>
             <svg viewBox="0 0 24 24">
               <path d="M12 3v8" />
